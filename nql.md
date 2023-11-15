@@ -32,10 +32,14 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
   - A column reference
 
 ## 2. Scope
+NQL is differentiated from other SQL engines due to its native integration with the Narrative platform. Specifically, NQL interoperates with the following components of the Narrative platform. 
 
-- NQL ***SHALL*** allow querying of data that resides in a Dataset.
+### 2.1 Datasets
+ A dataset is a system of record for any row of data that is ingressed, egressed, or registered on a supported storage engine in the Narrative platform. Datasets are identifiable by their unique identifiers and a unique name or "slug" that is unique within the Company's namespace. Datasets define the schema of the underlying data contained within the dataset. Schemas are immutable. 
 
-### 3. Rosetta Stone Attribute Catalog
+- NQL ***SHALL*** allow querying of data that resides in a Dataset, via an Access Rule.
+
+### 2.2 Rosetta Stone Attribute Catalog
 
 The Narrative Data Collaboration Platform provides a standardized global attribute catalog known as the "Rosetta Stone" for NQL-based queries. This catalog comprises Rosetta Stone Attributes—data points normalized and aggregated from multiple sources across participating companies. Queries against these attributes are permissible only if the dataset containing them is governed by an appropriate [Access Rule](RFC_Link_Here) (also see [Knowledge Base Article](KB_Article_Link_Here) for more details).
 
@@ -43,7 +47,7 @@ Users MAY utilize Rosetta Stone Attributes to query datasets within their own co
 
 Attributes SHALL be of the following types: string, long, double, timestamptz, or object. Object types MUST contain nested properties. To reference nested properties within an object attribute, dot-notation SHALL be used.
 
-### 4. Permissions (Access Rules)
+### 2.2. Permissions (Access Rules)
 
 Permissions within the NQL environment are regulated through Access Rules. Each Access Rule ***MUST*** delineate:
 
@@ -68,7 +72,7 @@ NQL ***SHALL*** support the following keywords.
 
 - ***WHERE***: Adheres to the syntax `WHERE <search_condition>`, where `<search_condition>` is a boolean value expression.
 
-- ***LIMIT***: Specifies a budget constraint in the format `LIMIT <amount> <unit>`, e.g., `LIMIT 100 USD`. This keyword restricts the number of rows returned, without exceeding the given limit. `LIMIT ALL` omits any limit.
+- ***LIMIT***: Specifies a budget constraint in the format `LIMIT <amount> <unit>`, e.g., `LIMIT 100 USD`. This keyword restricts the number of rows returned, without exceeding the given limit. `LIMIT 0 USD PER CALENDAR_MONTH` implies purchasing only data with zero cost. If `LIMIT` is not included, a limit of 0 is assumed. To specify no budget constraint, `NO LIMIT` can be explicitly set.
 
 - ***USD***: Denotes that the `LIMIT` is set in US Dollars. This is the only supported unit for `LIMIT` currently.
 
@@ -96,7 +100,9 @@ NQL ***SHALL*** support the following keywords.
 - **Definition**: Specifies the maximum cost-per-mille (CPM) in US Dollars that the querier is willing to pay for 1000 rows of data.
 - **Data Type**: Numeric
 - **Usage**: Can be used in the `WHERE` clause as a filtering criterion and in the `SELECT` clause as an output column.
-- **Constraints**: Value must be a positive numeric value, up to two decimal places.
+- **Constraints**: Value must be a positive numeric value, up to two decimal places, or the value 0.
+- - Setting a price (CPM) to 0 ***SHALL*** explicitly filter out access rules with a price, thereby only querying data that is freely available. 
+- - Omitting a CPM filter ***SHALL*** apply no filter, allowing targeting of data at any price. This is particularly useful for `EXPLAIN` statements to understand available data, but not recommended for `CREATE MATERIALIZED VIEW` statements due to potential high costs.
 
 #### 5.1.2 _access_rule_id (NOT YET IMPLEMENTED)
 - **Definition**: Identifier for the Access Rule that governs the query's permissions.
@@ -166,7 +172,9 @@ Using `EXPLAIN <query>`, a forecast can be generated. This forecast estimates bo
 ### 10.3 CREATING MATERIALIZED VIEWS
 
 #### 10.4.1 Materialized Views
-Creating a materialized view effectively creates a new dataset with a unique name. Such datasets cannot ingest data from other sources. Costs may or may not be incurred depending on the underlying query's access rules.
+In databases that support them, a materialized view is a database object that stores the result of a query physically. It provides a way to cache expensive query results and improve query performance by reading from this pre-computed result set, which can be refreshed periodically or on-demand. Similarly, in NQL, creating a materialized view creates a new, unique dataset within the Narrative Data Collaboration Platform that can be further queried or actioned on downstream. 
+
+Creating a materialized view effectively creates a new dataset with a unique name. Such datasets cannot ingest data from other sources. Data purchase costs may or may not be incurred when executing a query that materializes data as a new dataset, depending on the underlying query's access rules.  
 
 #### 10.4.2 Materialized View Syntax
 
@@ -186,6 +194,7 @@ AS SELECT <column_names> FROM <table_name>
 Note: Materialized view names must be slugified and unique within a company's dataset space, using only alphanumeric and underscore characters. Typically, these names should be enclosed in double quotation marks.
 
 #### 10.3.3 Materialized View Parameters
+The following parameters apply to the dataset that is generated by the `CREATE MATERIALIZE VIEW` command: 
 
 - `DISPLAY_NAME`: Human-readable name, usually describing the business context of the dataset.
     - Type: string
@@ -195,7 +204,7 @@ Note: Materialized view names must be slugified and unique within a company's da
     - Type: string
     - Default: Empty or generated by RosettaAI.
   
-- `EXPIRE`: Updates to legacy [retention policies](https://api.narrative.dev/#tag/Datasets/paths/~1datasets~1%7Bdataset_id%7D~1admin~1retention-policy~1preview/put) to support only `expireWhen`.
+- `EXPIRE`: Setting for the [retention policy](https://api.narrative.dev/#tag/Datasets/paths/~1datasets~1%7Bdataset_id%7D~1admin~1retention-policy~1preview/put).
     - Allowed Values:
         - `expireWhen > ISO PERIOD`
         - `retain_everything`
@@ -323,6 +332,21 @@ WHERE
   ```
 
 # APPENDIX
+
+# CHANGE LOG
+
+## Update 2023-11-05 
+### Section 2 - Scope
+- Revised to highlight NQL's integration with the Narrative platform.
+- Expanded the definition of Datasets to include their role as a system of record for data managed within the Narrative platform, emphasizing their unique identifiers, immutable schemas, and namespace uniqueness.
+
+### Section 3 - Supported Keywords
+- Updated the LIMIT keyword description to clarify its role in budget constraints and the implications of using LIMIT 0 USD PER CALENDAR_MONTH and NO LIMIT.
+
+### Section 5.1.1 - _price_cpm_usd
+- Enhanced the definition to specify the behavior when setting the price (CPM) to 0, emphasizing its role in filtering out priced access rules and querying only free data.
+- Clarified the implications of omitting a CPM filter, noting its utility in EXPLAIN statements and caution in CREATE MATERIALIZED VIEW statements due to potential cost implications.
+
 
 ## OUT OF SCOPE FOR THIS VERSION:
 
