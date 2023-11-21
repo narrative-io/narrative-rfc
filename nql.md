@@ -1,7 +1,7 @@
 # NQL: Narrative SQL Interface
 
 ## Abstract
-
+a
 The Narrative SQL Interface ("NQL") provides a syntax for querying one or more datasets via a Narrative-specific implementation of Structured Query Language. NQL acts on one or more **Datasets.** NQL is interpreted by a query engine whose purpose is to parse the query and validate syntax, validate the permissions (**[Access Rules]**) associated to the actor submitting the query, execute the query in a supported query engine and, when appropriate, write the output as a Dataset.
 
 ## 1. Introduction 
@@ -345,6 +345,78 @@ WHERE
   AND rs."event_timestamp" > '2023-10-01'
   AND rs._price_cpm_usd <= 2.0
   ```
+
+## 13. Best Practices and Guidelines for NQL Queries
+
+### 13.1 General Best Practices
+
+These best practices apply to all NQL queries. 
+
+1. **Query Validation**: Always validate the query before execution, using the `/nql/validate` API service. 
+2. **Quoting Conventions**: Use double quotes (") to quote both table names, dataset field names, attribute names and attribute property names. 
+3. **Boolean Filters**: If a property is of type `boolean`, filters should only be `true` or `false`.
+5. **Interval Formatting**: Use the format `INTERVAL '7' DAYS` when building interval queries. You can use any ISO 8601 period syntax. 
+6. **Current Timestamp**: Use `CURRENT_TIMESTAMP` (instead of `NOW()`.)
+7. **Object Type Handling**: You can not filter directly on attributes of type `object`. Use the properties of the object instead. 
+	**Example**:
+```sql
+"narrative"."rosetta_stone"."mobile_id_unique_identifier"."value"
+```
+	**Example**:
+```sql
+"company_data"."sports_data"."high_score"
+```
+8. **Enum Array Adherence**: Strictly adhere to the enum array values for attribute properties when filtering values. 
+
+### 13.2 Best Practices or Querying Rosetta Stone
+This section focuses on best practices specifically tailored for querying Rosetta Stone attributes, typically used when exploring third-party data within the Narrative platform. These guidelines are crucial for efficiently navigating and extracting value from Rosetta Stone datasets.
+
+### 13.2.1 Preliminary Analysis
+
+1. **Use of EXPLAIN Statement**: Prioritize running an `EXPLAIN` statement to roughly understand the volume of data available and the estimated data costs for executing the query. This step is crucial for effective cost management and data retrieval planning.
+
+### 13.2.2 Query Construction
+
+1. **Attribute Selection**: Always filter on at least one attribute in your queries. Remember, system-generated attributes (those starting with `_`) are not counted in this context.
+    
+2. **Attribute Co-occurrence**: When constructing queries, it is advisable to include attributes in the `SELECT` clause that co-occur. This practice enhances the relevance and efficiency of the query, especially in the context of Rosetta Stone's diverse and comprehensive datasets.
+    
+3. **Important Attribute Filtering**: Consider filtering the most important attribute in the `SELECT` clause. If a specific filter is not relevant, and you just want to find all data containing an attribute or attribute property use an `IS NOT NULL` filter as a safeguard to ensure that the query returns data.
+
+### 13.2.3 Cost Control in Queries
+When querying Rosetta Stone attributes or any access rule that comes with a cost, it is important to to manage costs effectively. Two key mechanisms for this are the CPM filter and the budget limit filter.
+
+#### CPM Filter Example
+
+The CPM (Cost Per Mille) filter allows you to specify the maximum cost you are willing to pay per 1000 rows of data. This filter is applied in the `WHERE` clause of your query.
+
+To locate data no matter the cost per row, simply omit the `_price_cpm_usd` condition from the `WHERE` clause.  This is most advisable when doing an initial forecast for data using `EXPLAIN`. In practice when actually running a query that will result in a data purchase, it is important to have both a cost per row (CPM) filter AND a budget filter. 
+
+**Example**:
+```sql
+SELECT "narrative"."rosetta_stone"."mobile_id_unique_identifier"."value"
+FROM "narrative"."rosetta_stone"
+WHERE "narrative"."rosetta_stone"."_price_cpm_usd" <= 1.50;
+
+```
+
+In this example, the query will only retrieve data from rows where the cost is $1.50 or less per 1000 rows.
+#### Budget Limit Filter Example
+```sql
+SELECT "narrative"."rosetta_stone"."hl7_gender"."gender"
+FROM "narrative"."rosetta_stone"
+WHERE "narrative"."rosetta_stone"."hl7_gender"."gender" IS NOT NULL
+LIMIT 100 USD PER CALENDAR_MONTH;
+
+```
+
+Here, the query limits the data purchase to a maximum of $100 per calendar month, regardless of the number of rows retrieved.
+
+### 13.3 Tips and Tricks
+
+#### 13.3.1 Filtering on geographic coordinates
+When filtering geographic coordinates, create a bounding box using both `<` and `>` operators on both fields.
+
 
 # APPENDIX
 
