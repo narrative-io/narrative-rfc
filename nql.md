@@ -96,7 +96,7 @@ NQL ***SHALL*** support the following keywords.
 
 ### 5.1 Reserved Fields
 
-#### 5.1.1 _price_cpm_usd
+#### 5.1.1 `_price_cpm_usd`
 - **Definition**: Specifies the maximum cost-per-mille (CPM) in US Dollars that the querier is willing to pay for 1000 rows of data.
 - **Data Type**: Numeric
 - **Usage**: Can be used in the `WHERE` clause as a filtering criterion and in the `SELECT` clause as an output column.
@@ -104,13 +104,13 @@ NQL ***SHALL*** support the following keywords.
 - - Setting a price (CPM) to 0 ***SHALL*** explicitly filter out access rules with a price, thereby only querying data that is freely available. 
 - - Omitting a CPM filter ***SHALL*** apply no filter, allowing targeting of data at any price. This is particularly useful for `EXPLAIN` statements to understand available data, but not recommended for `CREATE MATERIALIZED VIEW` statements due to potential high costs.
 
-#### 5.1.2 _access_rule_id (NOT YET IMPLEMENTED)
+#### 5.1.2 `_access_rule_id` (NOT YET IMPLEMENTED)
 - **Definition**: Identifier for the Access Rule that governs the query's permissions.
 - **Data Type**: String or Numeric ID
 - **Usage**: Typically used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
 - **Constraints**: Must match an existing Access Rule ID.
 
-#### 5.1.3 _source_company_id_ (NOT YET IMPLEMENTED
+#### 5.1.3 `_source_company_id` (NOT YET IMPLEMENTED)
 - **Definition**: Identifier for the company or entity providing the Access Rule.
 - **Data Type**: String or Numeric ID
 - **Usage**: Used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
@@ -158,16 +158,31 @@ NQL ***SHALL*** support the following keywords.
 
 ### 10.1 Cost Control in Queries
 
-Queries can implement cost controls by filtering on unit price per row and by setting an overall budget for the entire query.
+Queries in NQL can implement cost controls through two primary mechanisms: filtering based on the unit price per row and setting an overall budget for the query.
 
 ```sql
 SELECT <select_list> FROM <dataset_source> WHERE <search_condition> [LIMIT <amount> <unit> PER <period>]
 SELECT [...table.column] | [table.*] FROM [schema.table] WHERE [...table.column <filter_expression>] [_price_cpm_usd <= <price>] [LIMIT 100.50 USD PER CALENDAR_MONTH]
 ```
 
+1. **Unit Price Filtering (`_price_cpm_usd`):**
+   - This filter allows users to specify the maximum cost-per-mille (CPM) in US Dollars that they are willing to pay for 1000 rows of data.
+   - Setting `_price_cpm_usd` to a specific value filters out data that costs more than the specified price, thereby querying data at or below the set price.
+   - Setting `_price_cpm_usd` to 0 explicitly filters out any data that has a cost, thus only querying free data.
+   - Omitting the `_price_cpm_usd` filter means there is no price filter applied, allowing the query to target data at any price.
+
+2. **Budget Constraint (`LIMIT`):**
+   - The `LIMIT` clause in a query sets a budget constraint, specified as `LIMIT <amount> <unit>`, for example, `LIMIT 100 USD`.
+   - Using `LIMIT 0 USD PER CALENDAR_MONTH` indicates that only data with zero cost is to be purchased.
+   - If the `LIMIT` clause is not included in a query, a default limit of 0 is assumed, implying no budget for purchasing data.
+   - To specify that there is no budget constraint, the `NO LIMIT` clause can be used, allowing the purchase of data at any price.
+
+These cost control mechanisms ensure that users can manage their data querying expenses effectively while accessing the necessary data.
+
+
 ### 10.2 Data and Cost Forecasting
 
-Using `EXPLAIN <query>`, a forecast can be generated. This forecast estimates both the number of rows returned by the query and the associated cost.
+Using `EXPLAIN <query>`, a forecast can be generated. This forecast estimates both the number of rows returned by the query and the associated cost to purchase the data, if any, according to the access rules that grant access. 
 
 ### 10.3 CREATING MATERIALIZED VIEWS
 
