@@ -483,10 +483,6 @@ WHERE
 # CHANGE LOG
 
 ## Update 2023-12-26
-### Section 5 - Reserved Fields
-
-- `_source_company_slug` as an identifier to target specific companies. company_slug is used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
-- `_access_rule_name` as an identifier to target specific access rules. `_access_rule_name` is used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
 
 ### Section 10 - CREATING MATERIALIZED VIEWS
 
