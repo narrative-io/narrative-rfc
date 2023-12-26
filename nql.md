@@ -116,13 +116,13 @@ NQL ***SHALL*** support the following keywords.
 - **Usage**: Used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
 - **Constraints**: Must match an existing provider ID.
 
-#### 5.1.4 `_source_company_slug` 
+#### 5.1.4 `_source_company_slug` (NOT YET IMPLEMENTED)
 - **Definition**: A unique identifier for a company usually created off of a company's name.
 - **Data Type**: String 
 - **Usage**: Used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
 - **Constraints**: Must be globally unique and only contain alphanumeric characters.
 
-#### 5.1.5 `_access_rule_name` 
+#### 5.1.5 `_access_rule_name` (NOT YET IMPLEMENTED)
 - **Definition**: a unique, human-readable name for a specific access rule in a company seat.
 - **Data Type**: String 
 - **Usage**:  Typically used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
@@ -331,7 +331,7 @@ FROM
 
 ### 10.6 Querying an Access Rule Directly 
 
-An access rule has two identifiers: a `name` and an `id`. NQL supports querying internal or external access rules directly, in addition to the Rosetta Stone attribute catalog and dataset ids, through `_access_rule_name` and not `access_rule_id`. 
+An access rule has two identifiers: a `name` and an `id`. NQL supports querying internal or external access rules directly, in addition to the Rosetta Stone attribute catalog and dataset ids, through `access_rule_name` and not `access_rule_id`. 
 
 #### 10.6.1 Querying Internal Access Rules 
 
@@ -346,7 +346,7 @@ FROM company_data.access_rule_for_private_deal pd
 
 #### 10.6.2 Querying External Access Rules 
 
-An access rule name, defined in section 5.1.5 as a unique, human-readable name for a specific access rule in a company seat, is added after the company identifier. When querying data in an external company seat, an access rule name always follows `_source_company_slug`.  
+An access rule name, defined in section 5.1.5 as a unique, human-readable name for a specific access rule in a company seat, is added after the company identifier. When querying data in an external company seat, an access rule name always follows `company_slug`.  
 
 ##### Example 
 
@@ -481,6 +481,20 @@ WHERE
 # APPENDIX
 
 # CHANGE LOG
+
+## Update 2023-12-26
+### Section 5 - Reserved Fields
+
+- `company_slug` as an identifier to target specific companies. company_slug is used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
+- `access_rule_name` as an identifier to target specific access rules. _access_rule_name is used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
+
+### Section 10 - CREATING MATERIALIZED VIEWS
+
+- Updated to include `REFRESH_SCHEDULE`, which defines the frequency of updates for the materialized view.
+- Included the new country_code_3_to_2() UDF. 
+- Updated to explain querying access rules directly. Internal access rules are targeted using `access_rule_name` and the 'company_data' identifier and external access rules are targeted using `company_slug` and `access_rule_name` 
+- Created a new section explaining the Rosetta Embedded Namespace. The Rosetta Embedded Namespace is facilitated by `_rosetta_stone`, a direct method to query Rosetta Stone attributes. 
+
 
 ## Update 2023-11-05 
 ### Section 2 - Scope
