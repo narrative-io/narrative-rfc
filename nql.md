@@ -104,17 +104,29 @@ NQL ***SHALL*** support the following keywords.
 - - Setting a price (CPM) to 0 ***SHALL*** explicitly filter out access rules with a price, thereby only querying data that is freely available. 
 - - Omitting a CPM filter ***SHALL*** apply no filter, allowing targeting of data at any price. This is particularly useful for `EXPLAIN` statements to understand available data, but not recommended for `CREATE MATERIALIZED VIEW` statements due to potential high costs.
 
-#### 5.1.2 `_access_rule_id`
+#### 5.1.2 `_access_rule_id` (NOT YET IMPLEMENTED)
 - **Definition**: Identifier for the Access Rule that governs the query's permissions.
 - **Data Type**: String or Numeric ID
 - **Usage**: Typically used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
 - **Constraints**: Must match an existing Access Rule ID.
 
-#### 5.1.3 `_source_company_id`
+#### 5.1.3 `_source_company_id` (NOT YET IMPLEMENTED)
 - **Definition**: Identifier for the company or entity providing the Access Rule.
 - **Data Type**: String or Numeric ID
 - **Usage**: Used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
 - **Constraints**: Must match an existing provider ID.
+
+#### 5.1.4 `_source_company_slug` 
+- **Definition**: A unique identifier for a company usually created off of a company's name.
+- **Data Type**: String 
+- **Usage**: Used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
+- **Constraints**: Must be globally unique and only contain alphanumeric characters.
+
+#### 5.1.5 `_access_rule_name` 
+- **Definition**: a unique, human-readable name for a specific access rule in a company seat.
+- **Data Type**: String 
+- **Usage**:  Typically used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
+- **Constraints**: Must be unique within a company seat and only contain alphanumeric characters.
 
 ### 5.2 Identifier Quoting and Referencing 
 
@@ -317,13 +329,13 @@ FROM
 ...
 ```
 
-### 10.6 Querying via Access Rules  
+### 10.6 Querying an Access Rule Directly 
 
-NQL supports querying internal or external access rules directly, in addition to the Rosetta Stone attribute catalog and dataset ids, through `_access_rule_id`. 
+An access rule has two identifiers: a `name` and an `id`. NQL supports querying internal or external access rules directly, in addition to the Rosetta Stone attribute catalog and dataset ids, through `_access_rule_name` and not `access_rule_id`. 
 
 #### 10.6.1 Querying Internal Access Rules 
 
-An Access Rule ID, defined in section 5.1.2 as an identifier for the Access Rule that governs the query's permission, is added after the company identifier. When querying data in your own company seat, an access rule id always follows `company_data`.  
+An access rule name, defined in section 5.1.5 as a unique, human-readable name for a specific access rule in a company seat, is added after the company identifier. When querying data in your own company seat, an access rule name always follows `company_data`.  
 
 ##### Example 
 
@@ -334,7 +346,7 @@ FROM company_data.access_rule_for_private_deal pd
 
 #### 10.6.2 Querying External Access Rules 
 
-An Access Rule ID, defined in section 5.1.2 as an identifier for the Access Rule that governs the query's permission, is added after the company identifier. When querying data in an external company seat, an access rule id always follows `_source_company_id`.  
+An access rule name, defined in section 5.1.5 as a unique, human-readable name for a specific access rule in a company seat, is added after the company identifier. When querying data in an external company seat, an access rule name always follows `_source_company_slug`.  
 
 ##### Example 
 
@@ -347,7 +359,7 @@ FROM _source_company_id.access_rule_unique_name_1 teams
 
 #### 10.7.1 `_rosetta_stone`
 
- NQL supports Attribute querying via the Rosetta Embedded Namespace is facilitated by `_rosetta_stone`, a direct method to query Rosetta Stone attributes. `_rosetta_stone` acts as an attribute reference within the dataset or access rule identifier. In case of an absence of mappings or an incorrect attribute reference, the query will return an error.
+ NQL supports Attribute querying via the Rosetta Embedded Namespace is facilitated by `_rosetta_stone`, a direct method to query Rosetta Stone attributes. `_rosetta_stone` acts as an attribute reference within the dataset or access rule. `_rosetta_stone` must follow either a dataset's `unique_name`, a dataset's `id`, or an access rule's `name`. In case of an absence of mappings or an incorrect attribute reference, the query will return an error.
 
  ##### Basic Usage
     
@@ -356,8 +368,8 @@ FROM _source_company_id.access_rule_unique_name_1 teams
     FROM dataset_source
     ```
     
-    - **`ds_identifier`**: Alias or identifier for the dataset.
-    - **`attribute_name`**: The name of the Rosetta Stone attribute to be mapped.
+    - **`ds_identifier`**: Alias or identifier for the dataset. A dataset can be referenced by its `id` or `unique_name`. 
+    - **`attribute_name`**: The name of the Rosetta Stone attribute that is being selected.
     - **`alias_name`**: An optional alias for the selected attribute.
 
 ##### Example with Single Dataset
