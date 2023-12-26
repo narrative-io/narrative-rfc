@@ -485,14 +485,14 @@ WHERE
 ## Update 2023-12-26
 ### Section 5 - Reserved Fields
 
-- `company_slug` as an identifier to target specific companies. company_slug is used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
-- `access_rule_name` as an identifier to target specific access rules. _access_rule_name is used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
+- `_source_company_slug` as an identifier to target specific companies. company_slug is used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
+- `_access_rule_name` as an identifier to target specific access rules. `_access_rule_name` is used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
 
 ### Section 10 - CREATING MATERIALIZED VIEWS
 
 - Updated to include `REFRESH_SCHEDULE`, which defines the frequency of updates for the materialized view.
 - Included the new country_code_3_to_2() UDF. 
-- Updated to explain querying access rules directly. Internal access rules are targeted using `access_rule_name` and the 'company_data' identifier and external access rules are targeted using `company_slug` and `access_rule_name` 
+- Updated to explain querying access rules directly. Internal access rules are targeted using `access_rule_name` and the `company_data` identifier and external access rules are targeted using `company_slug` and `access_rule_name` 
 - Created a new section explaining the Rosetta Embedded Namespace. The Rosetta Embedded Namespace is facilitated by `_rosetta_stone`, a direct method to query Rosetta Stone attributes. 
 
 
