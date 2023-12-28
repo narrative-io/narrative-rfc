@@ -116,18 +116,6 @@ NQL ***SHALL*** support the following keywords.
 - **Usage**: Used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
 - **Constraints**: Must match an existing provider ID.
 
-#### 5.1.4 `_source_company_slug` (NOT YET IMPLEMENTED)
-- **Definition**: A unique identifier for a company usually created off of a company's name.
-- **Data Type**: String 
-- **Usage**: Used in the `WHERE` clause to specify data shared by a particular provider. Can also be used in the `SELECT` clause for output.
-- **Constraints**: Must be globally unique and only contain alphanumeric characters.
-
-#### 5.1.5 `_access_rule_name` (NOT YET IMPLEMENTED)
-- **Definition**: a unique, human-readable name for a specific access rule in a company seat.
-- **Data Type**: String 
-- **Usage**:  Typically used in the `WHERE` clause to specify which Access Rule to apply for the query. Can also appear in the `SELECT` clause for debugging or auditing.
-- **Constraints**: Must be unique within a company seat and only contain alphanumeric characters.
-
 ### 5.2 Identifier Quoting and Referencing 
 
 - **Quoting Rule**: Identifiers not starting with a lowercase letter [a-z] ***MUST*** be enclosed in double quotation marks (`"`).
@@ -316,7 +304,7 @@ SELECT
 ```
 #### 10.5.2 `country_code_3_to_2()`
 
-The country_code_3_to_2('column') function takes in a column of ISO 3166-1 alpha-3 country code(s) and converts them to The ISO 3166-1 alpha-2 country code(s). The function is useful for matching the standard output for the `iso_3166_1_country` Rosetta Stone attribute, expressed as ISO 3166-1 alpha-2 country codes. 
+The country_code_3_to_2('column') function takes in a single column of ISO 3166-1 alpha-3 country code(s) and converts it to ISO 3166-1 alpha-2 country code(s). The function is useful for matching the standard output of the `iso_3166_1_country` Rosetta Stone attribute, expressed as ISO 3166-1 alpha-2 country codes. 
 
 ##### Example:
 
@@ -325,17 +313,19 @@ CREATE MATERIALIZED VIEW "country_code_sample" AS
 SELECT
   country_code_3_to_2(my_dataset.country_code) as two_letter_codes
 FROM 
-  company_date.my_dataset
+  company_data.my_dataset
 ...
 ```
 
 ### 10.6 Querying an Access Rule Directly 
 
-An access rule has two identifiers: a `name` and an `id`. NQL supports querying internal or external access rules directly, in addition to the Rosetta Stone attribute catalog and dataset ids, through `access_rule_name` and not `access_rule_id`. 
+An access rule has two identifiers: an `access_rule_name` and an `access_rule_id`. Access rule names are human readable and must be created explicitly, while access rule ids are created automatically during the initial set up for each access rule. NQL supports querying access rules directly through `access_rule_name` and not `access_rule_id`. 
+
+NQL supports querying internal access rules (access rules on datasets in the same company seat) or external access rules (access rules on datasets in a different company seat) directly. Querying an access rule is the third method of querying datasets in NQL, in addition to the Rosetta Stone attribute catalog and dataset ids.  
 
 #### 10.6.1 Querying Internal Access Rules 
 
-An access rule name, defined in section 5.1.5 as a unique, human-readable name for a specific access rule in a company seat, is added after the company identifier. When querying data in your own company seat, an access rule name always follows `company_data`.  
+An access rule name is added after the company identifier. When querying data in your own company seat, an access rule name always follows `company_data`.  
 
 ##### Example 
 
@@ -346,20 +336,20 @@ FROM company_data.access_rule_for_private_deal pd
 
 #### 10.6.2 Querying External Access Rules 
 
-An access rule name, defined in section 5.1.5 as a unique, human-readable name for a specific access rule in a company seat, is added after the company identifier. When querying data in an external company seat, an access rule name always follows `company_slug`.  
+An access rule name is added after the company identifier. When querying data in your own company seat, an access rule name always follows `company_slug`.  
 
 ##### Example 
 
 ```sql
 SELECT teams.baseball_teams
-FROM _source_company_id.access_rule_unique_name_1 teams
+FROM company_slug.access_rule_unique_name_1 teams
 ```
 
 ### 10.7 Embedded Namespaces in NQL 
 
 #### 10.7.1 `_rosetta_stone`
 
- NQL supports Attribute querying via the Rosetta Embedded Namespace is facilitated by `_rosetta_stone`, a direct method to query Rosetta Stone attributes. `_rosetta_stone` acts as an attribute reference within the dataset or access rule. `_rosetta_stone` must follow either a dataset's `unique_name`, a dataset's `id`, or an access rule's `name`. In case of an absence of mappings or an incorrect attribute reference, the query will return an error.
+ NQL supports attribute querying via the Rosetta Embedded Namespace. This namespace is facilitated by `_rosetta_stone`, a direct method to query Rosetta Stone attributes. `_rosetta_stone` acts as an attribute reference within the dataset or access rule. `_rosetta_stone` must follow either a dataset's `unique_name`, a dataset's `id`, or an access rule's `name`. In case of an absence of mappings or an incorrect attribute reference, the query will return an error.
 
  ##### Basic Usage
     
@@ -400,6 +390,16 @@ FROM _source_company_id.access_rule_unique_name_1 teams
     - The first Rosetta Stone attribute (**`attribute_1`**) is being pulled from dataset **`ds_123`**.
     - The second Rosetta Stone attribute (**`attribute_2`**) is being pulled from dataset **`ds_456`**.
 
+##### Example of Nested Properties
+  For nested properties, the same dot notation is used within the **`_rosetta_stone`** namespace.
+    
+    ```sql
+    SELECT
+        ds_123._rosetta_stone."nested"."attribute" AS nested_attribute
+    FROM
+        company_data.ds_123 AS ds_123
+    ```
+
 ##### Example of Filtering with Rosetta Attributes
     
     ```sql
@@ -413,15 +413,6 @@ FROM _source_company_id.access_rule_unique_name_1 teams
     
     Here, the **`WHERE`** clause uses the Rosetta attribute **`unique_id.value`** from dataset **`ds_123`** for filtering.
     
-##### Example of Nested Properties
-  For nested properties, the same dot notation is used within the **`_rosetta_stone`** namespace.
-    
-    ```sql
-    SELECT
-        ds_123._rosetta_stone."nested"."attribute" AS nested_attribute
-    FROM
-        company_data.ds_123 AS ds_123
-    ```
 
 ## 12. Example Queries
 
@@ -486,10 +477,12 @@ WHERE
 
 ### Section 10 - CREATING MATERIALIZED VIEWS
 
-- Updated to include `REFRESH_SCHEDULE`, which defines the frequency of updates for the materialized view.
-- Included the new country_code_3_to_2() UDF. 
-- Updated to explain querying access rules directly. Internal access rules are targeted using `access_rule_name` and the `company_data` identifier and external access rules are targeted using `company_slug` and `access_rule_name` 
-- Created a new section explaining the Rosetta Embedded Namespace. The Rosetta Embedded Namespace is facilitated by `_rosetta_stone`, a direct method to query Rosetta Stone attributes. 
+- Create Materialized View syntax was updated to include `REFRESH_SCHEDULE`, which defines the frequency of updates for the materialized view.
+- The UDF section includes a new function: `country_code_3_to_2()`. 
+- NQL supports targeting access rules directly. 
+    - Internal access rules are targeted using `access_rule_name` and the `company_data` identifier.  
+    - External access rules are targeted using `company_slug` and `access_rule_name`. 
+- Introduction of the Rosetta Embedded Namespace as a way to query attributes from specific access rules or datasets. The Rosetta Embedded Namespace is facilitated by `_rosetta_stone`.
 
 
 ## Update 2023-11-05 
