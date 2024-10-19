@@ -2,11 +2,11 @@
 
 ## Abstract
 
-The Narrative SQL Interface ("NQL") provides a syntax for querying one or more datasets via a Narrative-specific implementation of Structured Query Language. NQL acts on one or more **Datasets.** NQL is interpreted by a query engine whose purpose is to parse the query and validate syntax, validate the permissions (**[Access Rules]**) associated to the actor submitting the query, execute the query in a supported query engine and, when appropriate, write the output as a Dataset.
+The Narrative SQL Interface ("NQL") provides a syntax for querying one or more datasets, access rules, views, and the Rosetta Stone set of normalized data Attributes via a Narrative-specific implementation of Structured Query Language. NQL acts on one or more **Datasets.** NQL is interpreted by a query engine whose purpose is to parse the query and validate syntax, validate the permissions (**[Access Rules]**) associated to the actor submitting the query, execute the query in a supported query engine and, when appropriate, write the output as a Dataset. The goal of NQL is to facilitate data querying, cross-company collaboration and interactions with Narrative's technology for normalizing disparate datasets, Rosetta Stone.
 
 ## 1. Introduction 
 
-Narrative SQL (NQL) commands are statements that execute queries on the Narrative Data Collaboration Platform.  NQL input consists of a sequence of commands. A command is composed of a sequence of tokens, terminated by a semicolon (“;”). The end of the input stream also terminates a command. Which tokens are valid depends on the syntax of the particular command.
+Narrative SQL (NQL) commands are statements that execute queries on the Narrative Data Collaboration Platform.  NQL input consists of a sequence of commands. A command is composed of a sequence of tokens, terminated by a semicolon (";"). The end of the input stream also terminates a command. Which tokens are valid depends on the syntax of the particular command.
 
 ### 1.1 Requirements Language
 
@@ -43,7 +43,11 @@ NQL is differentiated from other SQL engines due to its native integration with 
 
 The Narrative Data Collaboration Platform provides a standardized global attribute catalog known as the "Rosetta Stone" for NQL-based queries. This catalog comprises Rosetta Stone Attributes—data points normalized and aggregated from multiple sources across participating companies. Queries against these attributes are permissible only if the dataset containing them is governed by an appropriate [Access Rule](RFC_Link_Here) (also see [Knowledge Base Article](KB_Article_Link_Here) for more details).
 
-Users MAY utilize Rosetta Stone Attributes to query datasets within their own company account or any other account that has granted access permissions.
+Users MAY utilize Rosetta Stone Attributes to query datasets within their own company account or any other account that has granted access permissions. Rosetta Stone Attributes can be accessed through different namespaces:
+
+1. Embedded Namespace: Users can access Rosetta Stone Attributes on Datasets and Access Rules by querying `dataset_name._rosetta_stone.attribute_name` or `access_rule_name._rosetta_stone.attribute_name`.
+2. Company Namespace: Users can query all Rosetta Stone Attributes within their own company or within another company (where an Access Rule exists) by querying `company_name.rosetta_stone`.
+3. Narrative Namespace: A special namespace, `narrative.rosetta_stone`, allows users to query Rosetta Stone Attributes for all companies outside of their own which have shared an Access Rule with them.
 
 Attributes SHALL be of the following types: string, long, double, timestamptz, or object. Object types MUST contain nested properties. To reference nested properties within an object attribute, dot-notation SHALL be used.
 
@@ -124,19 +128,21 @@ NQL ***SHALL*** support the following keywords.
 
 ## 6. SELECT COMMAND
 
-- A select_list **MUST** NOT use ``*`` notation. 
+- A select list **MUST NOT** use ``*`` notation (all fields must be explicitly selected)
 
-- A *FROM* clause **MUST** contain only a single table name.
+- A *FROM* clause **MUST** contain the table name. Throws error if the table name is missing or if the buyer does not have access to the table (dataset or access rule). 
 
-- A *FROM* clause **MUST** contain the table name. Throws error if the table name is missing or if the buyer does not have access to the table. 
-
-- select_list **MUST** only contain columns available in the underlying dataset. Throws an error if a column is requested that does not exist in the dataset.
+- select_list **MUST** only contain columns available in the underlying dataset, or via Rosetta Stone. Throws an error if a column is requested that does not exist in the dataset.
 
 ## 7. FROM CLAUSE
 
 - The *FROM* clause **MUST** contain both the schema name as well as the table name. Throws an error if wrong format.
 
-- The *FROM* clause schema **MUST** be one of `company_data`, `narrative`. Error if not one of three valid values. 
+- The *FROM* clause schema **MUST** be one of the following:
+  - The user's own company slug (or the equivalent, 'company_data')
+  - Another company's slug
+  - 'narrative'
+Error if not one of these valid values.
 
 - The user that is running the query **MUST** have access to the dataset being referenced in dataset_source. If the user does not have a valid access rule for the dataset a `Unknown table or insufficient table permissions` error should be thrown.
 
@@ -270,6 +276,29 @@ The following parameters apply to the dataset that is generated by the `CREATE M
     - Default: '@once' 
 
 
+### 10.4 Cost Control in Queries
+
+Queries in NQL can implement cost controls through two primary mechanisms: filtering based on the unit price per row and setting an overall budget for the query. These cost controls are necessary when querying data via access rules (either directly or via narrative.rosetta_stone), as this data may come at a cost to the user executing the query.
+
+```sql
+SELECT <select_list> FROM <dataset_source> WHERE <search_condition> [LIMIT <amount> <unit> PER <period>]
+SELECT [...table.column] | [table.*] FROM [schema.table] WHERE [...table.column <filter_expression>] [_price_cpm_usd <= <price>] [LIMIT 100.50 USD PER CALENDAR_MONTH]
+```
+
+1. **Unit Price Filtering (`_price_cpm_usd`):**
+   - This filter allows users to specify the maximum cost-per-mille (CPM) in US Dollars that they are willing to pay for 1000 rows of data.
+   - Setting `_price_cpm_usd` to a specific value filters out data that costs more than the specified price, thereby querying data at or below the set price.
+   - Setting `_price_cpm_usd` to 0 explicitly filters out any data that has a cost, thus only querying free data.
+   - Omitting the `_price_cpm_usd` filter means there is no price filter applied, allowing the query to target data at any price.
+
+2. **Budget Constraint (`LIMIT`):**
+   - The `LIMIT` clause in a query sets a budget constraint, specified as `LIMIT <amount> <unit>`, for example, `LIMIT 100 USD`.
+   - Using `LIMIT 0 USD PER CALENDAR_MONTH` indicates that only data with zero cost is to be purchased.
+   - If the `LIMIT` clause is not included in a query, a default limit of 0 is assumed, implying no budget for purchasing data.
+   - To specify that there is no budget constraint, the `NO LIMIT` clause can be used, allowing the purchase of data at any price.
+
+These cost control mechanisms ensure that users can manage their data querying expenses effectively while accessing the necessary data.
+
 ### 10.5 Specialized Functions in NQL
 
 NQL also supports a variety of specialized functions or User-Defined Functions (UDFs) to cater to specific use-cases.
@@ -345,11 +374,29 @@ SELECT teams.baseball_teams
 FROM company_slug.access_rule_unique_name_1 teams
 ```
 
-### 10.7 Embedded Namespaces in NQL 
+### 10.7 Namespaces in NQL
 
-#### 10.7.1 `_rosetta_stone`
+NQL operates in "strict mode" - identifiers must be fully qualified in the FROM statement to indicate the namespace they are pulled from. The following namespaces are supported in NQL:
 
- NQL supports attribute querying via the Rosetta Embedded Namespace. This namespace is facilitated by `_rosetta_stone`, a direct method to query Rosetta Stone attributes. `_rosetta_stone` acts as an attribute reference within the dataset or access rule. `_rosetta_stone` must follow either a dataset's `unique_name`, a dataset's `id`, or an access rule's `name`. In case of an absence of mappings or an incorrect attribute reference, the query will return an error.
+#### 10.7.1 Company Namespaces
+
+- Every Company (organization using the Narrative platform) has their own namespace, identified by a "slug". The slug identifies the company's namespace.
+- Datasets can only be queried directly by the company that owns the dataset, e.g., `company_slug.dataset_name`.
+- Users in one company can query data owned by another company using Access Rules, and must refer to that company's `company_slug.access_rule_name` in the query.
+- Users can also query their own data via access rules.
+
+#### 10.7.2 Rosetta Stone Embedded Namespace
+
+- Users can access fields and nested object fields in Datasets (and access rules that target those datasets).
+- Users can also access Rosetta Stone Attributes on Datasets and Access Rules by querying `dataset_name._rosetta_stone.attribute_name` or `access_rule_name._rosetta_stone.attribute_name`.
+
+#### 10.7.3 Rosetta Stone Company Namespace
+
+- Users can query all Rosetta Stone Attributes within their own company or within another company (only where an Access Rule exists) by querying `company_name.rosetta_stone`.
+
+#### 10.7.4 Narrative Rosetta Stone Namespace
+
+- There is a special namespace, `narrative.rosetta_stone`, which allows users to query Rosetta Stone Attributes for all companies outside of their own which have shared an Access Rule with them.
 
  ##### Basic Usage
     
@@ -421,14 +468,14 @@ Querying Rosetta Stone Attributes:
 ```sql
 EXPLAIN
 SELECT
-  narrative.rosetta_stone."unique_id"."value",
-  narrative.rosetta_stone."hl7_gender"."gender"  
+  rs."unique_id"."value",
+  rs."hl7_gender"."gender"  
 FROM
-  narrative.rosetta_stone
+  narrative.rosetta_stone rs
 WHERE 
-  narrative.rosetta_stone."hl7_gender"."gender" = 'female'
-  AND narrative.rosetta_stone."event_timestamp" > '2023-10-01' 
-  AND narrative.rosetta_stone._price_cpm_usd <= 2.0
+  rs."hl7_gender"."gender" = 'female'
+  AND rs."event_timestamp" > '2023-10-01' 
+  AND rs._price_cpm_usd <= 2.0
 ```
 
 Single Dataset:
@@ -437,14 +484,14 @@ Single Dataset:
 CREATE MATERIALIZED VIEW "running_times" AS
 
 SELECT 
-  company_data."20"."Workout_Timestamp",
-  company_data."20"."Total_Output" AS output
+  ds."Workout_Timestamp",
+  ds."Total_Output" AS output
 FROM 
-  company_data."20"
+  company_data."20" ds
 WHERE
-  company_data."20"."Total_Output" > 200 
-  AND company_data."20"."Fitness_Discipline" = 'Running'
-  AND company_data."20"._price_cpm_usd <= 1.00
+  ds."Total_Output" > 200 
+  AND ds."Fitness_Discipline" = 'Running'
+  AND ds._price_cpm_usd <= 1.00
   LIMIT
   50 USD PER CALENDAR_MONTH
 ```
@@ -472,6 +519,28 @@ WHERE
 # APPENDIX
 
 # CHANGE LOG
+
+## Update 2024-10-19
+
+### Section 1 - INTRODUCTION
+
+- Expanded the definition of NQL to include its ability to query Access Rules, Views, and Rosetta Stone Attributes.
+
+### Section 2.2 - ROSETTA STONE ATTRIBUTE CATALOG
+
+- Added information about different namespaces available for querying Rosetta Stone Attributes.
+
+### Section 7 - FROM CLAUSE
+
+- Updated the allowed schema names to now include `company_slug`, ensuring that queries can target schemas by company-specific identifiers.
+
+### Section 10.5 - COST CONTROL IN QUERIES
+
+- Clarified the conditions where cost controls are necessary, providing additional guidance on when and how to apply them to queries for optimized resource management.
+
+### Section 10.7 - NAMESPACES IN NQL
+
+- Introduced a new section explaining the different types of namespaces within NQL and how they can be queried, providing a more comprehensive framework for namespace usage in queries.
 
 ## Update 2023-12-26
 
